@@ -158,7 +158,7 @@ int init_config(void)
                   gpio = gpio2;
                   gpio2 = temp;
                 }
-                printf("%d ROT = %d/%d %04x:[%s] %04x:[%s]\n", lnno, gpio, gpio2, ka, keya, kb, keyb);
+                //printf("%d ROT = %d/%d %04x:[%s] %04x:[%s]\n", lnno, gpio, gpio2, ka, keya, kb, keyb);
                 add_rotary(&gpio_rotary[gpio], gpio, gpio2, key_names[ka].code, key_names[kb].code);
               }
               else {
