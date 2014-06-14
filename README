@@ -14,6 +14,8 @@ Usage: pikeyd [option]
 Options:
   -d    run as daemon
   -k    try to terminate running daemon
+  -pu	set internal pull-up resistors
+  -pd	set internal pull-down resistors
   -v    version
   -h    this help
 
