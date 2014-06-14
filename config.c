@@ -45,6 +45,18 @@ typedef struct _gpio_key{
   struct _gpio_key *next;
 }gpio_key_s;
 
+typedef struct _gpio_rotary{
+  int gpio_a;
+  int gpio_b;
+  int key_a;
+  int key_b;
+  int gpio_a_mask;
+  int gpio_b_mask;
+  int last_state;
+  int direction;
+  struct _gpio_rotary *next;
+}gpio_rotary_s;
+
 /* each I/O expander can have 8 pins */
 typedef struct{
   char name[20];
@@ -59,6 +71,7 @@ typedef struct{
 
 static int find_key(const char *name);
 static void add_event(gpio_key_s **ev, int gpio, int key, int xio);
+static void add_rotary(gpio_rotary_s **rot, int gpio_a, int gpio_b, int key_a, int key_b);
 static gpio_key_s *get_event(gpio_key_s *ev, int idx);
 static int find_xio(const char *name);
 static void setup_xio(int xio);
@@ -70,21 +83,38 @@ static int num_gpios_used=0;
 static xio_dev_s xio_dev[MAX_XIO_DEVS];
 static int xio_count = 0;
 
+static gpio_rotary_s *gpio_rotary[NUM_GPIO];
+static gpio_rotary_s *last_gpio_rotary = NULL;
+static int last_gpio_rotary_idx = NUM_GPIO;
+ 
 static int SP;
 static keyinfo_s KI;
 
+static int gpio_used(int gpio, int count)
+{
+  int i;
+  for (i = 0; i < count; i++) {
+    if (gpios[i] == gpio) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
 int init_config(void)
 {
-  int i,j,k,n;
+  int i,j,k,n,ka,kb;
   FILE *fp;
   char ln[MAX_LN];
   int lnno = 0;
-  char name[32], xname[32];
+  char name[32], xname[32], keya[32], keyb[32];
   char conffile[80];
-  int gpio,caddr,regno;
+  int gpio,caddr,regno,gpio2;
 
   for(i=0;i<NUM_GPIO;i++){
     gpio_key[i] = NULL;
+    gpio_rotary[i] = NULL;
   }
 
   /* search for the conf file in ~/.pikeyd.conf and /etc/pikeyd.conf */
@@ -113,10 +143,32 @@ int init_config(void)
 	  if(k){
 	    //printf("%d %04x:[%s] = %d/%d (%d)\n",lnno, k,name, gpio, n, key_names[k].code);
 	    if(key_names[k].code < 0x300){
-	      SP=0;
+              SP=0;
 	      add_event(&gpio_key[gpio], gpio, key_names[k].code, -1);
 	    }
 	  }
+          else if(strstr(ln, "ROT") == ln){
+            n=sscanf(ln, "%s %d %d %s %s", name, &gpio, &gpio2, &keya, &keyb);
+            if (n == 5) {
+              ka = find_key(keya);
+              kb = find_key(keyb);
+              if (ka && kb && key_names[ka].code < 0x300 && key_names[kb].code < 0x300) {
+                if (gpio > gpio2) {
+                  int temp = gpio;
+                  gpio = gpio2;
+                  gpio2 = temp;
+                }
+                printf("%d ROT = %d/%d %04x:[%s] %04x:[%s]\n", lnno, gpio, gpio2, ka, keya, kb, keyb);
+                add_rotary(&gpio_rotary[gpio], gpio, gpio2, key_names[ka].code, key_names[kb].code);
+              }
+              else {
+                printf("Line %d: unknown key(s) for rotary encoder: %s, %s\n", lnno, keya, keyb);
+              }
+            }
+            else {
+              printf("Line %d: invalid rotary encoder config\n", lnno);
+            }
+          }
 	  /* expander declarations start with "XIO" */
 	  else if(strstr(ln, "XIO") == ln){
 	    n=sscanf(ln, "%s %d/%i/%s", name, &gpio, &caddr, xname);
@@ -192,6 +244,20 @@ int init_config(void)
       n++;
     }
   }
+  for(i=0; i<NUM_GPIO; i++){
+    gpio_rotary_s* rot = gpio_rotary[i];
+    while (rot) {
+      if (!gpio_used(rot->gpio_a,n)) {
+        gpios[n] = rot->gpio_a;
+        n++;
+      }
+      if (!gpio_used(rot->gpio_b,n)) {
+        gpios[n] = rot->gpio_b;
+        n++;
+      }
+      rot = rot->next;
+    }
+  }
   num_gpios_used = n;
 
   for(j=0;j<xio_count;j++){
@@ -255,6 +321,31 @@ static void add_event(gpio_key_s **ev, int gpio, int key, int xio)
       (*ev)->key = key;
       (*ev)->xio = xio;
       (*ev)->next = NULL;
+    }
+  }
+}
+
+static void add_rotary(gpio_rotary_s **rot, int gpio_a, int gpio_b, int key_a, int key_b)
+{
+  if(*rot){
+    /* Recursive call to add the next link in the list */
+    add_rotary(&(*rot)->next, gpio_a, gpio_b, key_a, key_b);
+  }
+  else{
+    *rot = malloc(sizeof(gpio_rotary_s));
+    if(*rot==NULL){
+      perror("malloc");
+    }
+    else{
+      (*rot)->gpio_a = gpio_a;
+      (*rot)->key_a = key_a;
+      (*rot)->gpio_a_mask = 1 << gpio_a;
+      (*rot)->gpio_b = gpio_b;
+      (*rot)->key_b = key_b;
+      (*rot)->gpio_b_mask = 1 << gpio_b;
+      (*rot)->next = NULL;
+      (*rot)->last_state = 0;
+      (*rot)->direction = 0;
     }
   }
 }
@@ -526,4 +617,56 @@ void last_iic_key(keyinfo_s *kp)
   kp->val = KI.val;
 }
 
+static void advance_rotary(void)
+{
+  while(last_gpio_rotary == NULL && last_gpio_rotary_idx < NUM_GPIO) {
+    last_gpio_rotary_idx++;
+    if (last_gpio_rotary_idx < NUM_GPIO) {
+      last_gpio_rotary = gpio_rotary[last_gpio_rotary_idx];
+    }
+  }
+}
+
+void restart_rotaries(void)
+{
+  last_gpio_rotary = gpio_rotary[0];
+  last_gpio_rotary_idx = 0;
+  advance_rotary();
+}
+
+int got_more_rotaries(void)
+{
+  return last_gpio_rotary_idx < NUM_GPIO;
+}
+
+int get_next_rotary_key(int gpio_state)
+{
+  int bit_a = (gpio_state & last_gpio_rotary->gpio_a_mask) ? 1 : 0;
+  int bit_b = (gpio_state & last_gpio_rotary->gpio_b_mask) ? 1 : 0;
+  int new_state = bit_a << 2 | bit_b << 1 | (bit_a ^ bit_b);
+  int delta = (new_state - last_gpio_rotary->last_state) % 4;
+  int k = -1;
+  last_gpio_rotary->last_state = new_state;
+
+  if (delta == 1) {
+    if (last_gpio_rotary->direction == 1) {
+      k = last_gpio_rotary->key_a;
+    }
+    else {
+      last_gpio_rotary->direction = 1;
+    }
+  }
+  else if (delta == 3) {
+    if (last_gpio_rotary->direction == 2) {
+      k = last_gpio_rotary->key_b;
+    }
+    else {
+      last_gpio_rotary->direction = 2;
+    }
+  }
+
+  last_gpio_rotary = last_gpio_rotary->next;
+  advance_rotary();
+  return k;
+}
 

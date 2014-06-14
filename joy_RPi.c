@@ -75,6 +75,7 @@ struct joydata_struct
   int fd;
   int num_axes;
   int num_buttons;
+  int button_raw;
   int button_mask;
   int change_mask;
   int xio_mask;
@@ -161,6 +162,7 @@ int joy_RPi_init(void)
   joy_data[0].num_buttons = n;
   joy_data[0].num_axes = 0;
   joy_data[0].button_mask=0;
+  joy_data[0].button_raw=0;
   joy_data[0].xio_mask=xios;
 
   bounceCount=0;
@@ -237,6 +239,7 @@ void joy_RPi_poll(void)
 
     if(bounceCount<BOUNCE_TIME)bounceCount++;
 
+    joy_data[Joystick].button_raw = newGpio;
     joy_handle_event();
 
   }
@@ -314,6 +317,7 @@ void joy_handle_event(void)
     }
   }
   joy_handle_repeat();
+  send_gpio_rotary_keys(joy_data[Joystick].button_raw);
 }
 
 

@@ -55,8 +55,9 @@ int get_next_xio_key(int xio, int gpio);
 void restart_xio_keys(int xio);
 void handle_iic_event(int xio, int value);
 void last_iic_key(keyinfo_s *kp);
-
-
+void restart_rotaries(void);
+int got_more_rotaries(void);
+int get_next_rotary_key(int gpio_state);
 
 #endif
 

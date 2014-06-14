@@ -228,3 +228,16 @@ void get_last_key(keyinfo_s *kp)
   kp->key = lastkey.key;
   kp->val = lastkey.val;
 }
+
+int send_gpio_rotary_keys(int gpio_state)
+{
+  int k;
+  restart_rotaries();
+  while( got_more_rotaries() ){
+    k = get_next_rotary_key(gpio_state);
+    if (k > -1 && k < 0x300) {
+      sendKey(k, 1);
+      sendKey(k, 0);
+    }
+  }
+}
