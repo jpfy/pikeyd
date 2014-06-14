@@ -9,7 +9,12 @@ LDFLAGS :=
 INCLUDE :=
 endif
 
+ifdef DEBUG
+CFLAGS=-O0 -g3 -Wstrict-prototypes -Wmissing-prototypes $(INCLUDE)
+else
 CFLAGS=-O2 -Wstrict-prototypes -Wmissing-prototypes $(INCLUDE)
+endif
+
 SRC := $(wildcard *.c)
 OBJ := $(patsubst %.c,%.o,$(SRC))
 LIBS=
