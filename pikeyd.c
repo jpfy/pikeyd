@@ -48,6 +48,12 @@ int main(int argc, char *argv[])
     if(!strcmp(argv[i], "-r")){
       joy_enable_repeat();
     }
+    if(!strcmp(argv[i], "-pu")){
+      joy_pullup();
+    }
+    if(!strcmp(argv[i], "-pd")){
+      joy_pulldown();
+    }
     if(!strcmp(argv[i], "-v")){
       showVersion();
       exit(0);
@@ -101,6 +107,8 @@ static void showHelp(void)
   printf("  -d    run as daemon\n");
   printf("  -r    force key repeats\n");
   printf("  -k    try to terminate running daemon\n");
+  printf("  -pu   set internal pull-up resistors\n");
+  printf("  -pd   set internal pull-down resistors\n");
   printf("  -v    version\n");
   printf("  -h    this help\n");
 }

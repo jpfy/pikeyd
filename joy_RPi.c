@@ -50,6 +50,13 @@
 #define JOY_AXES              2
 #define JOY_DIRS              2
 
+#define OFFSET_PULLUPDN     37  // 0x0094 / 4
+#define OFFSET_PULLUPDNCLK  38  // 0x0098 / 4
+
+#define PUD_OFF  0
+#define PUD_DOWN 1
+#define PUD_UP   2
+
 #define BOUNCE_TIME 2
 
 // Raspberry Pi V1 GPIO
@@ -69,6 +76,7 @@ static int lastGpio=0;
 static int xGpio=0;
 static int bounceCount=0;
 static int doRepeat=0;
+static int pullUpDown=PUD_OFF;
 
 struct joydata_struct
 {
@@ -83,6 +91,43 @@ struct joydata_struct
   int change[JOY_BUTTONS];
   int is_xio[JOY_BUTTONS];
 } joy_data[1];
+
+static void short_wait(void)
+{
+  int i;
+  for (i=0; i<150; i++) {
+    asm volatile("nop");
+  }
+}
+
+static void set_pullupdn(int gpio, int pud)
+{
+    int clk_offset = OFFSET_PULLUPDNCLK + (gpio/32);
+    int shift = (gpio%32);
+
+    if (pud == PUD_DOWN)
+       *(GPIO+OFFSET_PULLUPDN) = (*(GPIO+OFFSET_PULLUPDN) & ~3) | PUD_DOWN;
+    else if (pud == PUD_UP)
+       *(GPIO+OFFSET_PULLUPDN) = (*(GPIO+OFFSET_PULLUPDN) & ~3) | PUD_UP;
+    else  // pud == PUD_OFF
+       *(GPIO+OFFSET_PULLUPDN) &= ~3;
+
+    short_wait();
+    *(GPIO+clk_offset) = 1 << shift;
+    short_wait();
+    *(GPIO+OFFSET_PULLUPDN) &= ~3;
+    *(GPIO+clk_offset) = 0;
+}
+
+void joy_pullup(void)
+{
+  pullUpDown = PUD_UP;
+}
+
+void joy_pulldown(void)
+{
+  pullUpDown = PUD_DOWN;
+}
 
 int joy_RPi_init(void)
 {
@@ -154,6 +199,10 @@ int joy_RPi_init(void)
       close(GpioFile);
       GPIO = (volatile unsigned*)GpioMemoryMap;
       lastGpio = ((int*)GPIO)[GPIO_ADDR_OFFSET];
+
+      for (Index = 0; Index < n; ++Index){
+        set_pullupdn(gpio_pin(Index), pullUpDown); 
+      }
     }
   }
 

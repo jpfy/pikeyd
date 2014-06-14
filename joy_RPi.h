@@ -33,7 +33,8 @@ void joy_RPi_poll(void);
 void joy_RPi_exit(void);
 void joy_handle_event(void);
 void joy_enable_repeat(void);
-
+void joy_pullup(void);
+void joy_pulldown(void);
 
 #endif
 
