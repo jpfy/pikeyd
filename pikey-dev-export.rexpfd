@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<rexpfd>
+    <destination path="ubuntu12-desktop.Squeeze-Pi:/home/pi/pikeyd-dev"/>
+    <options createDirectoryStructure="false" createSelectedOnly="true" descriptionFilePath="/pikeyd/pikey-dev-export.rexpfd" overWriteExistingFiles="true" reviewSynchronize="false" saveSettings="true"/>
+    <selectedElements>
+        <file path="/pikeyd/.cproject"/>
+        <file path="/pikeyd/.gitignore"/>
+        <file path="/pikeyd/.project"/>
+        <file path="/pikeyd/Makefile"/>
+        <file path="/pikeyd/README"/>
+        <file path="/pikeyd/README.md"/>
+        <file path="/pikeyd/config.c"/>
+        <file path="/pikeyd/config.h"/>
+        <file path="/pikeyd/config.o"/>
+        <file path="/pikeyd/crosscomp.rules"/>
+        <file path="/pikeyd/daemon.c"/>
+        <file path="/pikeyd/daemon.h"/>
+        <file path="/pikeyd/daemon.o"/>
+        <file path="/pikeyd/iic.c"/>
+        <file path="/pikeyd/iic.h"/>
+        <file path="/pikeyd/iic.o"/>
+        <file path="/pikeyd/joy_RPi.c"/>
+        <file path="/pikeyd/joy_RPi.h"/>
+        <file path="/pikeyd/joy_RPi.o"/>
+        <file path="/pikeyd/keydefs.c"/>
+        <file path="/pikeyd/keydefs.o"/>
+        <file path="/pikeyd/lgpl-v21.txt"/>
+        <file path="/pikeyd/pikeyd"/>
+        <file path="/pikeyd/pikeyd.c"/>
+        <file path="/pikeyd/pikeyd.conf"/>
+        <file path="/pikeyd/pikeyd.o"/>
+        <file path="/pikeyd/uinput.c"/>
+        <file path="/pikeyd/uinput.h"/>
+        <file path="/pikeyd/uinput.o"/>
+        <file path="/pikeyd/wiring.png"/>
+        <file path="/pikeyd/wiring.sch"/>
+    </selectedElements>
+</rexpfd>
