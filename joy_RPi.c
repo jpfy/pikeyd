@@ -23,6 +23,74 @@
    02111-1307 USA.  
 */
 
+// How polling works:
+//	joy_RPi_poll is called from main thread every 4 ms (timing via usleep):
+//		if /dev/mem method is set up:
+//			read bit vector of GPIO status from memory mapped location
+//		else
+//			iterate chosen GPIO pins, open/read/close its value pseudo-file to
+//			build bit vector of GPIO status
+//
+//		if GPIO bit vec != last GPIO bit vec
+//			zero bounce timer
+//			XOR GPIO bit vector against last bit vector to get changes, and or into
+//			'changed' bit vector
+//
+//		set last GPIO bit vec to new GPIO bit vec
+//
+//		if bounce timer >= limit
+//			update button values and changed flags from GPIO and 'changed' bit vecs
+//			clear 'changed' bit vec
+//
+//		increment bounce timer if < limit
+//
+//		if any buttons have changed
+//			clear button changed flag and generate corresponding key presses in uinput
+//			(will iterate to generate multiple key presses per GPIO as configured)
+//
+//		process auto-repeat of last key sent (looks like literally the last key press sent,
+//		not repeat sequences)
+//
+//		use latest 'raw' GPIO bit vec to drive rotary control keypress generation
+//			for each rotary control, extracts 2 relevant GPIO values from bit vec
+//			and applies Gray code decoding using those values & stored previous values
+//			to determine if key should be sent.
+//
+
+// Implementing interrupt driven GPIO reading for rotary controls...
+//
+// - Add a pthread_mutex to uinput.c to make it thread safe
+//		- set up in init_uinput, tear down in close_uinput
+//		- wrap sendKey and sendRel in mutex lock/unlock calls
+//
+// - Refactor rotary control implementation in config.c:
+//		- get_next_rotary_key to be 'update_rotary_keys', with gpio state and rotary control
+//	 	  struct as arguments.
+//		- remove send_gpio_rotary_keys, restart_rotaries, got_more_rotaries and associated
+//		  calling code and data structures
+//		- add code to query for rotary use, get and iterate rotary list based on GPIO pin
+//
+// - For each GPIO pin associated with a rotary control (2 per control)
+//		- set interrupt edge to 'both' (e.g. via writing 'both' to /sys/class/gpio/gpio?/edge)
+//		- open file descriptor for value as non-blocking and store it
+//		- start an interrupt handler thread for the pin:
+//			- Pass in pin number
+//			- Enter polling loop (infinite timeout) on the file descriptor for the pin
+//			- on receiving interrupt:
+//				- read 1 char to clear interrupt
+//				- read GPIO status from memory map (entire)
+//				- call update_rotary_keys with new GPIO status and each rotary control struct
+//				  in linked list associated with pin ()
+//
+// - Add shutdown code that iterates all rotary control threads, cancelling them and
+//	 joining them, then closing the associated file descriptors.
+//
+// Useful references:
+//	https://git.drogon.net/?p=wiringPi;a=blob_plain;f=wiringPi/wiringPi.c;hb=HEAD
+//	https://developer.ridgerun.com/wiki/index.php/Gpio-int-test.c
+//	https://github.com/metachris/RPIO/blob/ed01a67a4cfa03db91e571994771a650ac5818f0/source/RPIO/_RPIO.py
+
+
 /*******************************************/
 /* based on the xmame driver by
 /* Jason Birch   2012-11-21   V1.00        */
@@ -150,13 +218,13 @@ int joy_RPi_init(void)
 
       sprintf(Buffer, "/sys/class/gpio/gpio%u/direction", gpio_pin(Index));
       if (!(File = fopen(Buffer, "w"))){
-	perror(Buffer);
-	//printf("Failed to open file: %s\n", Buffer);
+    	  perror(Buffer);
+    	  //printf("Failed to open file: %s\n", Buffer);
       }
       else{
-	fprintf(File, "in");
-	fclose(File);
-	sprintf(GPIO_Filename[Index], "/sys/class/gpio/gpio%u/value", gpio_pin(Index));
+		fprintf(File, "in");
+		fclose(File);
+		sprintf(GPIO_Filename[Index], "/sys/class/gpio/gpio%u/value", gpio_pin(Index));
       }
       AllMask |= (1 << gpio_pin(Index));
       xios |= ( is_xio(gpio_pin(Index)) << gpio_pin(Index) );
@@ -243,20 +311,20 @@ void joy_RPi_poll(void)
   if(joy_data[Joystick].fd){			
     if (!GPIO){ /* fallback I/O? don't use - very slow. */
       for (Index = 0; Index < joy_data[Joystick].num_buttons; ++Index){
-	if( (File = fopen(GPIO_Filename[Index], "r")) ){
-	  Char = fgetc(File);
-	  fclose(File);
+		if( (File = fopen(GPIO_Filename[Index], "r")) ){
+		  Char = fgetc(File);
+		  fclose(File);
 
-	  iomask = (1 << gpio_pin(Index));
-	  if (Char == '0'){
-	    newGpio |= iomask;
-	    //joy_data[Joystick].buttons[Index] = 1;
-	  }
-	  else{
-	    newGpio &= ~iomask;
-	    //joy_data[Joystick].buttons[Index] = 0;
-	  }
-	}
+		  iomask = (1 << gpio_pin(Index));
+		  if (Char == '0'){
+			newGpio |= iomask;
+			//joy_data[Joystick].buttons[Index] = 1;
+		  }
+		  else{
+			newGpio &= ~iomask;
+			//joy_data[Joystick].buttons[Index] = 0;
+		  }
+		}
       }
     }
     else{
@@ -279,9 +347,9 @@ void joy_RPi_poll(void)
       joy_data[Joystick].change_mask = xGpio;
 
       for (Index = 0; Index < joy_data[Joystick].num_buttons; ++Index){
-	iomask = (1 << gpio_pin(Index));
-	joy_data[Joystick].buttons[Index] = !(newGpio & iomask);
-	joy_data[Joystick].change[Index] = !!(xGpio & iomask);
+		iomask = (1 << gpio_pin(Index));
+		joy_data[Joystick].buttons[Index] = !(newGpio & iomask);
+		joy_data[Joystick].change[Index] = !!(xGpio & iomask);
       }
       xGpio = 0;
     }

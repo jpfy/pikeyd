@@ -95,7 +95,7 @@ int init_uinput(void)
   return 0;
 }
 
-int test_uinput(void)
+void test_uinput(void)
 {
   int                    dx, dy;
   int                    i,k;
@@ -229,7 +229,7 @@ void get_last_key(keyinfo_s *kp)
   kp->val = lastkey.val;
 }
 
-int send_gpio_rotary_keys(int gpio_state)
+void send_gpio_rotary_keys(int gpio_state)
 {
   int k;
   restart_rotaries();

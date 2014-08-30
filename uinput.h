@@ -27,10 +27,10 @@
 #define _UINPUT_H_
 
 int init_uinput(void);
-int test_uinput(void);
+void test_uinput(void);
 int close_uinput(void);
 int send_gpio_keys(int gpio, int value);
-int send_gpio_rotary_keys(int gpio_state);
+void send_gpio_rotary_keys(int gpio_state);
 int sendKey(int key, int value);
 void get_last_key(keyinfo_s *kp);
 
