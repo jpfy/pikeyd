@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <linux/input.h>
 #include <linux/uinput.h>
+#include <pthread.h>
 #include "config.h"
 #include "daemon.h"
 #include "uinput.h"
@@ -41,6 +42,8 @@ static int sendSync(void);
 static struct input_event     uidev_ev;
 static int uidev_fd;
 static keyinfo_s lastkey;
+
+static pthread_mutex_t	send_key_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define die(str, args...) do { \
         perror(str); \
@@ -151,6 +154,8 @@ int close_uinput(void)
 
 int sendKey(int key, int value)
 {
+  pthread_mutex_lock(&send_key_lock);
+
   memset(&uidev_ev, 0, sizeof(struct input_event));
   gettimeofday(&uidev_ev.time, NULL);
   uidev_ev.type = EV_KEY;
@@ -161,6 +166,8 @@ int sendKey(int key, int value)
     die("error: write");
 
   sendSync();
+
+  pthread_mutex_unlock(&send_key_lock);
 
   return 0;
 }
